@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
@@ -241,6 +242,66 @@ func TestGetConfig(t *testing.T) {
 			rr := httptest.NewRecorder()
 
 			p.ServeHTTP(&plugin.Context{}, rr, req)
+
+			test.httpTest.CompareHTTPResponse(rr, test.expectedResponse)
+		})
+	}
+}
+
+type mockPluginAPI struct {
+	Plugin
+	mockOutputUserID string
+	mockPostID       *model.Post
+	mockPermaLink    string
+
+	err error
+}
+
+func TestCreateIssue(t *testing.T) {
+
+	httpTestString := testutils.HTTPTest{
+		T:       t,
+		Encoder: testutils.EncodeString,
+	}
+
+	for name, test := range map[string]struct {
+		httpTest         testutils.HTTPTest
+		request          testutils.Request
+		context          *plugin.Context
+		expectedResponse testutils.ExpectedResponse
+	}{
+		"not authorized": {
+			httpTest: httpTestString,
+			request: testutils.Request{
+				Method: http.MethodGet,
+				URL:    "/api/v1/token",
+				Body:   nil,
+			},
+			context: &plugin.Context{},
+			expectedResponse: testutils.ExpectedResponse{
+				StatusCode:   http.StatusUnauthorized,
+				ResponseType: testutils.ContentTypePlain,
+				Body:         "Not authorized\n",
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := NewPlugin()
+			p.setConfiguration(
+				&Configuration{
+					GitHubOrg:               "mockOrg",
+					GitHubOAuthClientID:     "mockID",
+					GitHubOAuthClientSecret: "mockSecret",
+					EncryptionKey:           "mockKey",
+				})
+			p.initializeAPI()
+
+			p.SetAPI(&plugintest.API{})
+
+			req := test.httpTest.CreateHTTPRequest(test.request)
+			rr := httptest.NewRecorder()
+
+			p.ServeHTTP(test.context, rr, req)
 
 			test.httpTest.CompareHTTPResponse(rr, test.expectedResponse)
 		})
