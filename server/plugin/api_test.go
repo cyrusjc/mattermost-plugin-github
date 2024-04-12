@@ -1,11 +1,13 @@
 package plugin
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/go-github/v41/github"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -250,12 +252,56 @@ func TestGetConfig(t *testing.T) {
 
 type mockPluginAPI struct {
 	Plugin
-	mockOutputUserID string
-	mockPostID       *model.Post
-	mockPermaLink    string
+	mockOutputUserID    string
+	mockOutputPostID    *model.Post
+	mockOutputPermaLink string
+
+	mockOutputGitHubClient *github.Client
 
 	err error
 }
 
+type mockGithubClient struct {
+	github.Client
+}
+
+type mockPosts struct {
+	pluginapi.PostService
+	err error
+}
+
+func (mpo *mockPosts) CreatePost(_ *model.Post) error {
+	return mpo.err
+}
+
+type mockIssues struct {
+	github.IssuesService
+	mockIssue    *github.Issue
+	mockResponse *github.Response
+	mockEror     error
+}
+
+func (mi *mockIssues) Create(_ context.Context, _ string, _ string, _ *github.IssueRequest) (*github.Issue, *github.Response, error) {
+	return mi.mockIssue, mi.mockResponse, mi.mockEror
+}
+
+func (mp *mockPluginAPI) writeAPIError(_ http.ResponseWriter, _ *APIErrorResponse) {
+	return
+}
+func (mp *mockPluginAPI) getUsername(_ string) (string, error) {
+	return mp.mockOutputUserID, mp.err
+}
+func (mp *mockPluginAPI) getPost(_ string) (*model.Post, error) {
+	return mp.mockOutputPostID, mp.err
+}
+func (mp *mockPluginAPI) getPermaLink(_ string) string {
+	return mp.mockOutputPermaLink
+}
+
+func (mp *mockPluginAPI) githubConnectUser(_ context.Context, _ *GitHubUserInfo) *github.Client {
+	return mp.mockOutputGitHubClient
+}
+
 func TestCreateIssue(t *testing.T) {
+
 }
